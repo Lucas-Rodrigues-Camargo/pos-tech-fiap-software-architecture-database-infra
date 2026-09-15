@@ -1,0 +1,54 @@
+name: Terraform Database
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.11.4
+      - run: terraform fmt -check -recursive
+      - run: terraform init -backend=false
+      - run: terraform validate
+      - uses: aquasecurity/tfsec-action@v1.0.3
+        with:
+          soft_fail: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: pip install sqlfluff==3.4.2
+      - run: sqlfluff parse --dialect postgres migrations/V001__ef_initial_schema.sql > /dev/null
+
+  deploy:
+    if: github.event_name == 'push'
+    needs: validate
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      TF_VAR_vpc_id: ${{ vars.VPC_ID }}
+      TF_VAR_vpc_cidr_block: ${{ vars.VPC_CIDR_BLOCK }}
+      TF_VAR_database_subnet_group_name: ${{ vars.DATABASE_SUBNET_GROUP_NAME }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.11.4
+      - uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: us-east-1
+      - run: terraform init
+      - run: terraform plan -out=tfplan
+      - run: terraform apply -auto-approve tfplan

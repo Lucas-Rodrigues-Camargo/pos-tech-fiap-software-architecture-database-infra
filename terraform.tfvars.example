@@ -1,0 +1,7 @@
+aws_region                     = "us-east-1"
+project_name                   = "oficina-mecanica"
+environment                    = "production"
+vpc_id                         = "vpc-00000000000000000"
+vpc_cidr_block                 = "10.0.0.0/16"
+database_subnet_group_name     = "oficina-mecanica-vpc"
+
