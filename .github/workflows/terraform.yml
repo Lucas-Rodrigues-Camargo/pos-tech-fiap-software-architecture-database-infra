@@ -6,6 +6,11 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      confirm_apply:
+        description: 'Optional provisioning; keep false when using existing infrastructure'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -32,7 +37,7 @@ jobs:
       - run: sqlfluff parse --dialect postgres migrations/V001__ef_initial_schema.sql > /dev/null
 
   deploy:
-    if: github.event_name == 'push'
+    if: github.event_name == 'workflow_dispatch' && inputs.confirm_apply
     needs: validate
     runs-on: ubuntu-latest
     environment: production
